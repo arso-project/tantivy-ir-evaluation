@@ -1,5 +1,9 @@
 use minidom::Element;
 use std::fs;
+use std::path::Path;
+use tantivy::Index;
+use tantivy::Result;
+use tantivy::schema::*;
 
 #[derive(Debug)]
 pub struct ReutersArticle {
@@ -35,7 +39,42 @@ fn read_xml() -> Vec<ReutersArticle> {
   return articles;
 }
 
+fn create_index() -> Result<tantivy::Index> {
+	// create schema
+	let mut schema_builder = SchemaBuilder::default();
+	schema_builder.add_text_field("title", TEXT | STORED);
+	schema_builder.add_text_field("body", TEXT | STORED);
+	let schema = schema_builder.build();
+
+	// create index	
+	let index = match Index::create_in_dir(Path::new("./index/"), schema.clone()) {
+		Ok(index) => index,
+		Err(e)    => panic!("Error: {}", e),
+	};
+	Ok(index)
+}
+
+fn index_articles(index: tantivy::Index, articles: Vec<ReutersArticle>) -> Result<()> {
+	let mut index_writer = index.writer(50_000_000)?;
+	let schema = index.schema();
+	let title = schema.get_field("title").unwrap();
+	let body = schema.get_field("body").unwrap();
+
+	for article in articles {
+		let mut doc = Document::default();
+		doc.add_text(title, &article.title);
+		doc.add_text(body, &article.body);
+		index_writer.add_document(doc);
+	}
+	
+	index_writer.commit();
+
+	Ok(())	
+}
+
 fn main() {
 	let articles = read_xml();
-	println!("{:?}", articles);
+	
+	let index = create_index().unwrap();
+	index_articles(index, articles);
 }
