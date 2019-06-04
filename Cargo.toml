@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 quick-xml = "0.14.0"
+minidom = "*"
