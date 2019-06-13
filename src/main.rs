@@ -4,9 +4,15 @@ use std::path::Path;
 use tantivy::Index;
 use tantivy::Result;
 use tantivy::schema::*;
+//use chrono::{DateTime, FixedOffset, TimeZone};
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub struct ReutersArticle {
+  oldid: u64,
+  newid: u64,
+  //date: DateTime<FixedOffset>,
+  dateline: String,
   title: String,
   body: String,
 }
@@ -19,6 +25,10 @@ fn read_xml() -> Vec<ReutersArticle> {
       if child.name() == "REUTERS" {
 	  let mut title = String::new();
 	  let mut body = String::new();
+	  let mut dateline = String::new();
+          let oldid = child.attr("OLDID").unwrap().parse::<u64>().unwrap();
+          let newid = child.attr("NEWID").unwrap().parse::<u64>().unwrap();
+          //let mut date = FixedOffset::west(0).ymd(0,0,0).and_hms(0,0,0);
 	  for article_child in child.children() {
 		if article_child.name() == "TEXT" {
 			for text_child in article_child.children() {
@@ -26,11 +36,19 @@ fn read_xml() -> Vec<ReutersArticle> {
 					title = text_child.text();
 				} else if text_child.name() == "BODY" {
 					body = text_child.text();
-				}
+                                } else if text_child.name() == "DATELINE" {
+                                        dateline = text_child.text();
+                                }
 			}
-		}
+                } else if article_child.name() == "DATE" {
+                    //date = DateTime::parse_from_str(&article_child.text(), "%d-%b-%Y %H:%M:%S.2f").unwrap();
+                }
 	  }
 	  articles.push(ReutersArticle {
+                oldid: oldid,
+                newid: newid,
+                //date: date,
+                dateline: dateline,
 		title: title,
 		body: body,
 	  }); 
@@ -42,7 +60,11 @@ fn read_xml() -> Vec<ReutersArticle> {
 fn create_index() -> Result<tantivy::Index> {
 	// create schema
 	let mut schema_builder = SchemaBuilder::default();
+	schema_builder.add_u64_field("oldid", INDEXED | STORED);
+	schema_builder.add_u64_field("newid", INDEXED | STORED);
+	schema_builder.add_u64_field("date", INDEXED | STORED);
 	schema_builder.add_text_field("title", TEXT | STORED);
+	schema_builder.add_text_field("dateline", TEXT | STORED);
 	schema_builder.add_text_field("body", TEXT | STORED);
 	let schema = schema_builder.build();
 
@@ -73,6 +95,8 @@ fn index_articles(index: tantivy::Index, articles: Vec<ReutersArticle>) -> Resul
 }
 
 fn main() {
+        // TODO: Parse all xml files
+        // TODO: Parse and index oldid, newid, date, dateline
 	let articles = read_xml();
 	
 	let index = create_index().unwrap();
