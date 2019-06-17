@@ -1,0 +1,32 @@
+[
+    {
+        "name": "id",
+        "type": "u64",
+        "options": {
+            "indexed": true,
+            "stored": true
+        }
+    },
+    {
+        "name": "title",
+        "type": "text",
+        "options": {
+            "indexing": {
+                "record": "position",
+                "tokenizer": "default"
+            },
+            "stored": true
+        }
+    },
+    {
+        "name": "body",
+        "type": "text",
+        "options": {
+            "indexing": {
+                "record": "position",
+                "tokenizer": "default"
+            },
+            "stored": true
+        }
+    }
+]
