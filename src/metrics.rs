@@ -1,4 +1,4 @@
-mod metrics{
+
     // Precision at k
     pub fn p_at_k(results: Vec<i32>, testset: Vec<i32>, k: usize) -> (f32) {
         let (mut counter, mut p) = (0.0,0.0);
@@ -82,4 +82,3 @@ fn test_p_at_k() {
     }
 
     
-}
