@@ -1,9 +1,13 @@
 [
     {
+   
         "name": "id",
-        "type": "u64",
+        "type": "text",
         "options": {
-            "indexed": true,
+            "indexing": {
+                "record": "position",
+                "tokenizer": "default"
+            },
             "stored": true
         }
     },

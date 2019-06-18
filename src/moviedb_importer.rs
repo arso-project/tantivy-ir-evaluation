@@ -25,7 +25,6 @@ let mut count = 0;
 			article.push(body);
 			let id = ("id".to_string(), Value::U64(count));
 			article.push(id);
-			println!("Article: {:?}", article);
 			count += 1;
 			articles.push(article);
 				

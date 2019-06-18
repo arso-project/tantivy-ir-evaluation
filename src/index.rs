@@ -123,8 +123,6 @@ impl IndexHandle {
         let schema = self.index.schema();
         let mut writer = self.writer.take().unwrap();
 
-        println!("docs {:#?}", docs);
-
         for doc in docs {
             let mut document = Document::default();
             for (field_name, value) in doc {
@@ -161,11 +159,8 @@ impl IndexHandle {
         Ok(())
     }
 
-    pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, NamedFieldDocument)>> {
+    pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, String)>> {
         let mut metas = self.index.load_metas().unwrap();
-        for meta in metas.segments {
-            println!("META: {:?}", meta);
-        }
         self.ensure_reader()?;
         let reader = self.reader.take().unwrap();
         let searcher = reader.searcher();
@@ -188,7 +183,7 @@ impl IndexHandle {
         let mut results = vec![];
         for (score, doc_address) in top_docs {
             let retrieved_doc = searcher.doc(doc_address)?;
-            results.push((score, schema.to_named_doc(&retrieved_doc)));
+            results.push((score, schema.to_json(&retrieved_doc)));
         }
 
         Ok(results)
