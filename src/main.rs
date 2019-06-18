@@ -28,9 +28,13 @@ fn main() {
 	let mut catalog = index::IndexCatalog::new(base_path).unwrap();
 	catalog.create_index("movies".to_string(), schema).unwrap();
 	let index = catalog.get_index(&"movies".to_string()).unwrap();
-		let articles = moviedb_importer::reader();
-	index.add_documents(&articles);
-
+	let articles = moviedb_importer::reader();
+	println!("Articles: {:?}",&articles);
+	
+	let documents = match index.add_documents(&articles){
+		Ok(documents) => documents,
+		Err(e)    => panic!("Error: {}", e),
+	};
 }
 
 fn read_schema(path : String) -> tantivy::schema::Schema{
