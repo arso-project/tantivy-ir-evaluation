@@ -159,7 +159,7 @@ impl IndexHandle {
         Ok(())
     }
 
-    pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, String)>> {
+    pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, Document)>> {
         let mut metas = self.index.load_metas().unwrap();
         self.ensure_reader()?;
         let reader = self.reader.take().unwrap();
@@ -183,7 +183,8 @@ impl IndexHandle {
         let mut results = vec![];
         for (score, doc_address) in top_docs {
             let retrieved_doc = searcher.doc(doc_address)?;
-            results.push((score, schema.to_json(&retrieved_doc)));
+            //let result = schema.to_named (&retrieved_doc);
+            results.push((score, retrieved_doc));
         }
 
         Ok(results)
