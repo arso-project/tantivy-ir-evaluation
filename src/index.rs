@@ -1,15 +1,14 @@
-#[macro_use]
+
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::*;
 use tantivy::{
-    self, Directory, Index, /*IndexMeta,*/ IndexReader, IndexWriter, ReloadPolicy, Result, SegmentId,
-    SegmentMeta, TantivyError,
+    self, Index, IndexReader, IndexWriter, ReloadPolicy, Result, 
+    TantivyError,
 };
 
 pub struct IndexCatalog {
@@ -79,7 +78,7 @@ impl IndexCatalog {
     pub fn create_index(&mut self, name: String, schema: Schema) -> Result<()> {
         let mut index_path = self.base_path.clone();
         index_path.push(&name);
-        fs::create_dir_all(&index_path);
+        fs::create_dir_all(&index_path)?;
         let index = Index::create_in_dir(&index_path, schema)?;
         let handle = IndexHandle::new(index);
         self.indexes.insert(name, handle);
@@ -123,8 +122,6 @@ impl IndexHandle {
         let schema = self.index.schema();
         let mut writer = self.writer.take().unwrap();
 
-        println!("docs {:#?}", docs);
-
         for doc in docs {
             let mut document = Document::default();
             for (field_name, value) in doc {
@@ -134,7 +131,7 @@ impl IndexHandle {
                 }
             }
 
-            let opstamp = writer.add_document(document);
+            let _opstamp = writer.add_document(document);
         }
         writer.commit()?;
         self.writer = Some(writer);
@@ -161,11 +158,8 @@ impl IndexHandle {
         Ok(())
     }
 
-    pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, NamedFieldDocument)>> {
-        let mut metas = self.index.load_metas().unwrap();
-        for meta in metas.segments {
-            println!("META: {:?}", meta);
-        }
+    pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, Document)>> {
+        let _metas = self.index.load_metas().unwrap();
         self.ensure_reader()?;
         let reader = self.reader.take().unwrap();
         let searcher = reader.searcher();
@@ -179,6 +173,7 @@ impl IndexHandle {
             }
             if let Some(field) = schema.get_field(field_entry.name()) {
                 fields.push(field);
+                //println!("Field: {:?}", field);
             } // else cannot happen.
         }
         let query_parser = QueryParser::for_index(&self.index, fields);
@@ -188,7 +183,8 @@ impl IndexHandle {
         let mut results = vec![];
         for (score, doc_address) in top_docs {
             let retrieved_doc = searcher.doc(doc_address)?;
-            results.push((score, schema.to_named_doc(&retrieved_doc)));
+            //let result = schema.to_named (&retrieved_doc);
+            results.push((score, retrieved_doc));
         }
 
         Ok(results)

@@ -8,4 +8,6 @@ edition = "2018"
 quick-xml = "0.14.0"
 minidom = "*"
 tantivy = "0.9.1"
-chrono = "0.4"
+regex = "1.1.7"
+serde_json = { version = "1.0.39", features = ["preserve_order"] }
+serde = { version = "1.0.90", features = ["derive"] }
