@@ -1,6 +1,4 @@
-use std::path::Path;
 use tantivy::schema::*;
-use tantivy::Index;
 use tantivy::Result;
 
 use regex::Regex;
@@ -9,15 +7,12 @@ use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
 
-pub struct moviedata {
-	pub benchmark: HashMap<String, Vec<i32>>,
-	pub articles: Vec<Vec<(String, Value)>>,
-}
+
 
 pub fn benchmarkreader(dataset: &str) -> Result<HashMap<String, Vec<i32>>> {
 	let mut store = HashMap::new();
 	let f = File::open(dataset).unwrap();
-	let mut file = BufReader::new(&f);
+	let file = BufReader::new(&f);
 	let re = Regex::new(r"[\t]+").unwrap();
 	let re_numbers = Regex::new(" ").unwrap();
 	for line in file.lines() {
@@ -40,7 +35,7 @@ pub fn benchmarkreader(dataset: &str) -> Result<HashMap<String, Vec<i32>>> {
 pub fn reader(dataset: &str) -> Vec<Vec<(String, Value)>> {
 	let mut articles: Vec<Vec<(String, Value)>> = Vec::new();
 	let f = File::open(dataset).unwrap();
-	let mut file = BufReader::new(&f);
+	let file = BufReader::new(&f);
 	let re = Regex::new(r"[\t]+").unwrap();
 	let mut count = 1;
 	for line in file.lines() {

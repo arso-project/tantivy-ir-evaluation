@@ -1,33 +1,30 @@
 
     // Precision at k
-    pub fn p_at_k(results: Vec<i32>, testset: Vec<i32>, k: usize) -> (f32) {
+    pub fn p_at_k(results: Vec<i32>, benchmark: Vec<i32>, k: usize) -> (f32) {
         let (mut counter, mut p) = (0.0,0.0);
         if k == 0{
             return 0 as f32}
         for i in 0..k{
-            if results.len() > i as usize && testset.contains(&results[i as usize]){
+            if results.len() > i as usize && benchmark.contains(&results[i as usize]){
                 p = p + 1.0;
                 counter += 1.0;
             }
             else{
-                counter = counter + 1.0;
+                counter += 1.0;
             }}
         return p / counter
         
     }
     // Average Prescision
-    pub fn ap(results: Vec<i32>, testset: Vec<i32>) -> (f32) {
-        let  mut ap = 0.0;
-        if testset.len() < 1{
-            return 0.0
-        }
-            
+    pub fn ap(results: Vec<i32>, benchmark: Vec<i32>) -> (f32) {
+        let mut ap_sum = 0.0;
         for i in 0..results.len(){
-            if testset.contains(&results[i as usize]){
-                ap += p_at_k(results.clone(), testset.clone(), i+1);
+            if benchmark.contains(&results[i as usize]){
+                ap_sum += p_at_k(results.clone(), benchmark.clone(), i+1);
             }
+            //println!("REsults: {} {} {} ",ap_sum, benchmark.len(), ap_sum/benchmark.len() as f32);
         }
-            return ap/testset.len() as f32
+        ap_sum/benchmark.len() as f32
         
     }
 

@@ -1,15 +1,14 @@
-#[macro_use]
+
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
 use tantivy::schema::*;
 use tantivy::{
-    self, Directory, Index, /*IndexMeta,*/ IndexReader, IndexWriter, ReloadPolicy, Result, SegmentId,
-    SegmentMeta, TantivyError,
+    self, Index, IndexReader, IndexWriter, ReloadPolicy, Result, 
+    TantivyError,
 };
 
 pub struct IndexCatalog {
@@ -79,7 +78,7 @@ impl IndexCatalog {
     pub fn create_index(&mut self, name: String, schema: Schema) -> Result<()> {
         let mut index_path = self.base_path.clone();
         index_path.push(&name);
-        fs::create_dir_all(&index_path);
+        fs::create_dir_all(&index_path)?;
         let index = Index::create_in_dir(&index_path, schema)?;
         let handle = IndexHandle::new(index);
         self.indexes.insert(name, handle);
@@ -132,7 +131,7 @@ impl IndexHandle {
                 }
             }
 
-            let opstamp = writer.add_document(document);
+            let _opstamp = writer.add_document(document);
         }
         writer.commit()?;
         self.writer = Some(writer);
@@ -160,7 +159,7 @@ impl IndexHandle {
     }
 
     pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, Document)>> {
-        let mut metas = self.index.load_metas().unwrap();
+        let _metas = self.index.load_metas().unwrap();
         self.ensure_reader()?;
         let reader = self.reader.take().unwrap();
         let searcher = reader.searcher();
@@ -174,6 +173,7 @@ impl IndexHandle {
             }
             if let Some(field) = schema.get_field(field_entry.name()) {
                 fields.push(field);
+                //println!("Field: {:?}", field);
             } // else cannot happen.
         }
         let query_parser = QueryParser::for_index(&self.index, fields);

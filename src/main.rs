@@ -6,15 +6,10 @@ use serde_json;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
-use tantivy::schema::FieldValue;
-use tantivy::schema::NamedFieldDocument;
-use tantivy::{Document, Index, Result, TantivyError};
+
 
 fn main() {
-	// TODO: Parse all xml files
-	// TODO: Parse and index oldid, newid, date, dateline
 	let base_path = PathBuf::from(r"./index");
 
 	let schema = read_schema("./schemata/movies.json".to_string());
@@ -23,31 +18,46 @@ fn main() {
 	catalog.create_index("movies".to_string(), schema).unwrap();
 	let index = catalog.get_index(&"movies".to_string()).unwrap();
 	let articles = moviedb_importer::reader("datasets/movies.txt");
-	index.add_documents(&articles);
-	println!("start evaluation");
-	let benchmark = movies_benchmark("./datasets/movies-benchmark.txt".to_string(), index);
+	
+	
+	let docs = index.add_documents(&articles);
+	match docs {
+    Ok(()) => println!("Documents added"),
+    Err(e) => println!("can’t add documents: {:?}", e),
+}
+	let benchmark_data = moviedb_importer::benchmarkreader("datasets/movies-benchmark.txt").unwrap();
+	evaluate(benchmark_data, index);
 	
 }
-fn movies_benchmark(
-	file: String,
+fn evaluate(
+	benchmark_data : std::collections::HashMap<std::string::String, std::vec::Vec<i32>>
+ ,
 	index: &mut index::IndexHandle,
 ) {
 	let mut sum_p_at_3 = 0.0;
 	let mut sum_p_at_r = 0.0;
 	let mut sum_ap = 0.0;
-	let benchmark_data = moviedb_importer::benchmarkreader(&file).unwrap();
+	
 	for (key, relevant_docs) in &benchmark_data {
-		println!("Key:{} Val: {:?}",key,relevant_docs);
+		//println!("Key:{} Val: {:?}",key,relevant_docs);
+		
 		let mut retrieved_ids = Vec::new();
+		println!("Query: {:?}", key );
 		let retrieved_docs = index.query(&key.to_string(), 100).unwrap();
 		let id_field = tantivy::schema::Field(0);
 		let title_field = tantivy::schema::Field(1);
 		for doc in retrieved_docs {
-			let id = doc.1.get_first(id_field).unwrap().u64_value();
+			let mut is_in = 0;
+			let id = doc.1.get_first(id_field).unwrap().u64_value() as i32;
+			let title = doc.1.get_first(title_field).unwrap();
+			if relevant_docs.contains(&id){
+				is_in = 1;
+			}
+			println!("Title {:?} ID: {:?} is in Benchmark: {}",title , id,is_in);
 			retrieved_ids.push(id.clone() as i32 );
 		}
-		retrieved_ids.sort();
-		println!("Retrieved Ids: {:?}", retrieved_ids);
+		//retrieved_ids.sort();
+		//println!("Retrieved Ids: {:?}", retrieved_ids);
 		let p_at_3 = metrics::p_at_k(retrieved_ids.clone() , relevant_docs.clone(), 3);
 		println!("p@3: {}", p_at_3);
 		sum_p_at_3 = sum_p_at_3 +   p_at_3;
@@ -55,12 +65,13 @@ fn movies_benchmark(
 		let r = relevant_docs.len();
 		let p_at_r = metrics::p_at_k(retrieved_ids.clone() , relevant_docs.clone(), r);
 		println!("p@r: {}", p_at_r);
-		sum_p_at_r = sum_p_at_r + p_at_r;
+		sum_p_at_r += p_at_r;
 		println!("sum_p@r: {}", sum_p_at_r);
 
 		let ap = metrics::ap(retrieved_ids, relevant_docs.clone());
+		println!("ap: {}", ap);
 		sum_ap =  sum_ap + ap ;
-		
+		println!("sum_ap: {}", sum_ap);
 		
 	}
 	let mp_at_3 = sum_p_at_3 / benchmark_data.len() as f32;
@@ -70,7 +81,7 @@ fn movies_benchmark(
 }
 
 fn read_schema(path: String) -> tantivy::schema::Schema {
-	let mut file = File::open(path).unwrap();
+	let file = File::open(path).unwrap();
 	let mut buf_reader = BufReader::new(file);
 	let mut contents = String::new();
 	buf_reader.read_to_string(&mut contents).unwrap();
