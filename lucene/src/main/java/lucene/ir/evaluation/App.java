@@ -7,6 +7,9 @@ import java.nio.file.Files;
 import java.nio.file.FileSystems;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Arrays;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -89,13 +92,85 @@ public class App {
         StandardAnalyzer analyzer = new StandardAnalyzer();
 
 		List<String[]> benchmarks = splitFile(FileSystems.getDefault().getPath("..", "datasets", "movie-datset", "movies-benchmark.txt"));
+		String[] ids;
+		HashMap<String, HashSet<String>> benchmarkMap = new HashMap<>();
 
 		for (String[] benchmark : benchmarks) {
-			System.out.println("Searching for: " + benchmark[0]);
-			Query q = new QueryParser("body", analyzer).parse(benchmark[0]);
+			ids = benchmark[1].split(" ");
+			HashSet<String> hashIds = new HashSet<String>(Arrays.asList(ids));
+			benchmarkMap.put(benchmark[0], hashIds);
+		}
+
+		double sumPat3 = 0.0;
+		double sumPatR = 0.0;
+		double sumAP = 0.0;
+
+		for (Map.Entry<String, HashSet<String>> benchmark : benchmarkMap.entrySet()) {
+			String searchTerm = benchmark.getKey();
+			HashSet<String> hashIds = benchmark.getValue();
+			System.out.println("Searching for: " + searchTerm);
+			Query q = new QueryParser("body", analyzer).parse(searchTerm);
 			TopDocs docs = searcher.search(q, 100);
 			ScoreDoc[] hits = docs.scoreDocs;
-			System.out.println(Arrays.toString(hits));
+			Document[] results = new Document[hits.length];
+			ScoreDoc hit;
+			for (int i = 0; i < hits.length; i++) {
+				hit = hits[i];
+				results[i] = searcher.doc(hit.doc);	
+			}
+
+			double precAt3 = precisionAtK(results, hashIds, 3);
+			sumPat3 += precAt3;
+			System.out.println("Prec@3: " + precAt3);
+			double precAtR = precisionAtK(results, hashIds, results.length);
+			sumPatR += precAtR;
+			System.out.println("Prec@r: " + precAtR);
+			double ap = averagePrecision(results, hashIds);
+			sumAP += ap;
+			System.out.println("AP: " + ap);
 		}
+		
+		double mpAt3 = sumPat3 / benchmarkMap.size();
+		double mpAtR = sumPatR / benchmarkMap.size();
+		double map = sumAP / benchmarkMap.size();
+		System.out.println("MP@3: " + mpAt3 + " MP@R: " + mpAtR + " MAP: " + map);
+	}
+
+	/**
+	 * Precision at k
+	**/
+	private static double precisionAtK(Document[] results, HashSet<String> testSet, int k) {
+		double counter = 0.0;
+		double p = 0.0;
+		if (k == 0) {
+			return 0.0;
+		}
+		for (int i = 0; i < k; i++) {
+			if (results.length > i && testSet.contains(results[i].get("id"))) {
+				p += 1.0;
+				counter += 1.0;
+			} else {
+				counter += 1.0;
+			}
+		}
+		return p / counter;	
+	}
+
+	/**
+	 * Average Precision
+	**/
+	private static double averagePrecision(Document[] results, HashSet<String> testSet) {
+		double ap = 0.0;
+		if (testSet.size() < 1) {
+			return 0.0;
+		}
+	
+		for (int i = 0; i < results.length; i++) {
+			if (testSet.contains(results[i].get("id"))) {
+				ap += precisionAtK(results, testSet, i+1);
+			}
+		}
+		
+		return ap / testSet.size();
 	}
 }
