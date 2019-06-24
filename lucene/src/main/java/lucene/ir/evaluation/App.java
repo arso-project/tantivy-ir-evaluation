@@ -7,43 +7,60 @@ import java.nio.file.Files;
 import java.nio.file.FileSystems;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.io.IOException;
+import java.nio.file.Path;
 
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.index.DirectoryReader;
 
 public class App {
 
     public static void main(String[] args) {
-        List<String[]> movies = getMovies();
-		if (movies != null) {
 			try {
-				indexMovies(movies);
-			} catch (IOException e) {
+				if (args.length > 0 && args[0].equals("index")) {
+					List<String[]> movies = splitFile(FileSystems.getDefault().getPath("..", "datasets", "movies.txt"));
+					if (movies != null) {
+						indexMovies(movies);
+					}
+				} else if (args[0].equals("evaluate")) {
+					evaluateIndex();
+				} else {
+					System.out.println("Please pass index or evaluate argument.");
+				}
+
+			} catch (IOException | ParseException e) {
 				System.out.println(e.getMessage());
 			}	
-		}
     }
 
-    private static List<String[]> getMovies() {
-        List<String> movieLines = null;
+    private static List<String[]> splitFile(Path path) {
+        List<String> lines = null;
         try {
-            movieLines = Files.readAllLines(FileSystems.getDefault().getPath("..", "datasets", "movies.txt"));
+            lines = Files.readAllLines(path);
         } catch (java.io.IOException e) {
             System.out.println(e.getMessage());
         }
-        List<String[]> movies = new ArrayList<>();
-        for (String line : movieLines) {
-            movies.add(line.split("\t"));
+        List<String[]> splitLines = new ArrayList<>();
+        for (String line : lines) {
+            splitLines.add(line.split("\t"));
         }
-        return movies;
+        return splitLines;
     }
 
     private static void indexMovies(List<String[]> movies) throws IOException {
@@ -53,11 +70,32 @@ public class App {
         IndexWriter writer = new IndexWriter(index, config);
 
 		Document doc = null;
+		int id = 1;
 		for (String[] movie : movies) {
 			doc = new Document();
+			doc.add(new StringField("id", String.valueOf(id), Field.Store.YES));
 			doc.add(new TextField("title", movie[0], Field.Store.YES));
 			doc.add(new TextField("body", movie[1], Field.Store.YES));
 			writer.addDocument(doc);
+			id++;
 		}
+		writer.close();
     }
+
+	private static void evaluateIndex() throws IOException, ParseException {
+        Directory index = FSDirectory.open(FileSystems.getDefault().getPath("data"));
+        IndexReader reader = DirectoryReader.open(index);
+        IndexSearcher searcher = new IndexSearcher(reader);
+        StandardAnalyzer analyzer = new StandardAnalyzer();
+
+		List<String[]> benchmarks = splitFile(FileSystems.getDefault().getPath("..", "datasets", "movie-datset", "movies-benchmark.txt"));
+
+		for (String[] benchmark : benchmarks) {
+			System.out.println("Searching for: " + benchmark[0]);
+			Query q = new QueryParser("body", analyzer).parse(benchmark[0]);
+			TopDocs docs = searcher.search(q, 100);
+			ScoreDoc[] hits = docs.scoreDocs;
+			System.out.println(Arrays.toString(hits));
+		}
+	}
 }
