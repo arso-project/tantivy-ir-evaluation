@@ -1082,6 +1082,7 @@ dependencies = [
 name = "tantivy-ir-evaluation"
 version = "0.1.0"
 dependencies = [
+ "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "minidom 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "quick-xml 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.1.7 (registry+https://github.com/rust-lang/crates.io-index)",

@@ -1,3 +1,6 @@
+#[macro_use] extern crate log;
+
+
 mod index;
 mod metrics;
 mod moviedb_importer;
@@ -7,6 +10,9 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::PathBuf;
+    use std::collections::HashSet;
+    use std::iter::FromIterator;
+
 
 
 fn main() {
@@ -38,26 +44,27 @@ fn evaluate(
 	let mut sum_p_at_r = 0.0;
 	let mut sum_ap = 0.0;
 	
-	for (key, relevant_docs) in &benchmark_data {
-		//println!("Key:{} Val: {:?}",key,relevant_docs);
-		
+	for (key, relevant_docs_vec) in &benchmark_data {
+		//println!!("Key:{} Val: {:?}",key,relevant_docs);
+		let relevant_docs = HashSet::from_iter(relevant_docs_vec);
 		let mut retrieved_ids = Vec::new();
 		println!("Query: {:?}", key );
-		let retrieved_docs = index.query(&key.to_string(), 100).unwrap();
+		let retrieved_docs = index.query(&key.to_string(), 1000).unwrap();
+		
 		let id_field = tantivy::schema::Field(0);
 		let title_field = tantivy::schema::Field(1);
+		let num_res = retrieved_docs.len();
 		for doc in retrieved_docs {
-			let mut is_in = 0;
+			
 			let id = doc.1.get_first(id_field).unwrap().u64_value() as i32;
 			let title = doc.1.get_first(title_field).unwrap();
-			if relevant_docs.contains(&id){
-				is_in = 1;
-			}
-			println!("Title {:?} ID: {:?} is in Benchmark: {}",title , id,is_in);
+			
+			//println!("Title {:?} ID: {:?} Score : {:?}",title , id, doc.0);
 			retrieved_ids.push(id.clone() as i32 );
 		}
 		//retrieved_ids.sort();
-		//println!("Retrieved Ids: {:?}", retrieved_ids);
+		//println!!("Retrieved Ids: {:?}", retrieved_ids);
+		println!("Results: {:?}", num_res);
 		let p_at_3 = metrics::p_at_k(retrieved_ids.clone() , relevant_docs.clone(), 3);
 		println!("p@3: {}", p_at_3);
 		sum_p_at_3 = sum_p_at_3 +   p_at_3;

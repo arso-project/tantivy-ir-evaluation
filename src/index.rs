@@ -1,15 +1,12 @@
-
 use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
-use tantivy::collector::TopDocs;
+use tantivy::collector::Count;
+use tantivy::collector::{MultiCollector, TopDocs};
 use tantivy::query::QueryParser;
 use tantivy::schema::*;
-use tantivy::{
-    self, Index, IndexReader, IndexWriter, ReloadPolicy, Result, 
-    TantivyError,
-};
+use tantivy::{self, Index, IndexReader, IndexWriter, ReloadPolicy, Result, TantivyError};
 
 pub struct IndexCatalog {
     pub base_path: PathBuf,
@@ -173,123 +170,129 @@ impl IndexHandle {
             }
             if let Some(field) = schema.get_field(field_entry.name()) {
                 fields.push(field);
-                //println!("Field: {:?}", field);
             } // else cannot happen.
         }
-        let query_parser = QueryParser::for_index(&self.index, fields);
+        let mut query_parser = QueryParser::for_index(&self.index, fields);
+        let mut collectors = MultiCollector::new();
+        let top_docs_handle = collectors.add_collector(TopDocs::with_limit(1000000));
+        let count_handle = collectors.add_collector(Count);
+        //query_parser.set_conjunction_by_default();
         let query = query_parser.parse_query(query)?;
-        let top_docs = searcher.search(&query, &TopDocs::with_limit(limit as usize))?;
+
+        let mut multi_fruit = searcher.search(&query, &collectors)?;
+        let count = count_handle.extract(&mut multi_fruit);
+        let top_docs = top_docs_handle.extract(&mut multi_fruit);
 
         let mut results = vec![];
         for (score, doc_address) in top_docs {
             let retrieved_doc = searcher.doc(doc_address)?;
-            //let result = schema.to_named (&retrieved_doc);
             results.push((score, retrieved_doc));
         }
 
         Ok(results)
     }
     /* pub fn add_segment(&mut self, uuid_string: &str, max_doc: u32) -> Result<()> {
-        let mut segments = self.index.searchable_segment_metas()?;
-        let segment_id = SegmentId::generate_from_string(uuid_string);
-        if !self.index.searchable_segment_ids()?.contains(&segment_id) {
-            segments.push(SegmentMeta::new(segment_id, max_doc));
-            let schema = self.index.schema();
-            // add the counter of docs in segment to the index counter
-            let opstamp = self.index.load_metas()?.opstamp + max_doc as u64;
-            let metas = IndexMeta {
-                segments,
-                schema,
-                opstamp,
-                payload: None,
-            };
-            let mut buffer = serde_json::to_vec_pretty(&metas)?;
-            // just for newline
-            writeln!(&mut buffer)?;
-            self.index
-                .directory_mut()
-                .atomic_write(Path::new("meta.json"), &buffer[..])?;
-        } else {
-            return Err(TantivyError::InvalidArgument(
-                "segment already indexed".to_string(),
-            ));
+            let mut segments = self.index.searchable_segment_metas()?;
+            let segment_id = SegmentId::generate_from_string(uuid_string);
+            if !self.index.searchable_segment_ids()?.contains(&segment_id) {
+                segments.push(SegmentMeta::new(segment_id, max_doc));
+                let schema = self.index.schema();
+                // add the counter of docs in segment to the index counter
+                let opstamp = self.index.load_metas()?.opstamp + max_doc as u64;
+                let metas = IndexMeta {
+                    segments,
+                    schema,
+                    opstamp,
+                    payload: None,
+                };
+                let mut buffer = serde_json::to_vec_pretty(&metas)?;
+                // just for newline
+                writeln!(&mut buffer)?;
+                self.index
+                    .directory_mut()
+                    .atomic_write(Path::new("meta.json"), &buffer[..])?;
+            } else {
+                return Err(TantivyError::InvalidArgument(
+                    "segment already indexed".to_string(),
+                ));
+            }
+            if !self.index.searchable_segment_ids()?.contains(&segment_id) {
+                return Err(TantivyError::InvalidArgument(
+                    "not possible to add segment".to_string(),
+                ));
+            }
+            Ok(())
         }
-        if !self.index.searchable_segment_ids()?.contains(&segment_id) {
-            return Err(TantivyError::InvalidArgument(
-                "not possible to add segment".to_string(),
-            ));
+    }
+    #[test]
+    fn create_empty_indexcatalog() {
+        let base_path = PathBuf::from(r"./test");
+        fs::remove_dir_all(&base_path);
+        let catalog = IndexCatalog::new(base_path).unwrap();
+        assert_eq!(catalog.indexes.len(), 0);
+    }
+    #[test]
+    fn create_index() {
+        let base_path = PathBuf::from(r"./test");
+        fs::remove_dir_all(&base_path);
+        /// create a new index catalog, index catalog is a hashmap with indexname as key and index as value
+        let mut catalog = IndexCatalog::new(base_path).unwrap();
+        /// create a new schema with one textfield called "field_str" and build this schema
+        let mut schema_builder = Schema::builder();
+        let field_str = schema_builder.add_text_field("field_str", STRING);
+        let schema = schema_builder.build();
+        /// create two new indexes to compare the segment_ids after we call the add_segment method
+        catalog
+            .create_index("testindex1".to_string(), schema.clone())
+            .unwrap();
+        catalog
+            .create_index("testindex2".to_string(), schema)
+            .unwrap();
+
+        let index_handle = catalog.get_index(&"testindex1".to_string()).unwrap();
+        index_handle.ensure_writer();
+        let mut writer = index_handle.writer.take().unwrap();
+
+        /// create a new tantivy Document to push this doc to index1
+        let mut doc = Document::new();
+        doc.add_text(field_str, "addsegment");
+        writer.add_document(doc);
+        writer.commit();
+
+        let mut index1 = index_handle.index.clone();
+        let mut allsegments = index1.searchable_segment_ids().unwrap();
+        let index_handle2 = catalog.get_index(&"testindex2".to_string()).unwrap();
+        let index2 = index_handle2.index.clone();
+        /// get the segment_id for the segment in index1 and copy the files in index2 dir
+        let moving_segment = allsegments.pop().unwrap();
+        let uuid_string = moving_segment.uuid_string();
+        let exts = [
+            ".fast",
+            ".fieldnorm",
+            ".idx",
+            ".pos",
+            ".posidx",
+            ".store",
+            ".term",
+        ];
+        for ext in exts.iter() {
+            let pathstr1 = ["./test/testindex1/", &uuid_string, ext].concat();
+            let pathstr2 = ["./test/testindex2/", &uuid_string, ext].concat();
+            let mut path1 = PathBuf::from(pathstr1);
+            let mut path2 = PathBuf::from(pathstr2);
+            let result = fs::copy(path1, path2).unwrap();
         }
-        Ok(())
+
+        index_handle2.add_segment(&uuid_string, 1).unwrap();
+        assert_eq!(
+            index2
+                .searchable_segment_ids()
+                .unwrap()
+                .pop()
+                .unwrap()
+                .uuid_string(),
+            uuid_string
+        );
     }
+     */
 }
-#[test]
-fn create_empty_indexcatalog() {
-    let base_path = PathBuf::from(r"./test");
-    fs::remove_dir_all(&base_path);
-    let catalog = IndexCatalog::new(base_path).unwrap();
-    assert_eq!(catalog.indexes.len(), 0);
-}
-#[test]
-fn create_index() {
-    let base_path = PathBuf::from(r"./test");
-    fs::remove_dir_all(&base_path);
-    /// create a new index catalog, index catalog is a hashmap with indexname as key and index as value
-    let mut catalog = IndexCatalog::new(base_path).unwrap();
-    /// create a new schema with one textfield called "field_str" and build this schema
-    let mut schema_builder = Schema::builder();
-    let field_str = schema_builder.add_text_field("field_str", STRING);
-    let schema = schema_builder.build();
-    /// create two new indexes to compare the segment_ids after we call the add_segment method
-    catalog
-        .create_index("testindex1".to_string(), schema.clone())
-        .unwrap();
-    catalog
-        .create_index("testindex2".to_string(), schema)
-        .unwrap();
-
-    let index_handle = catalog.get_index(&"testindex1".to_string()).unwrap();
-    index_handle.ensure_writer();
-    let mut writer = index_handle.writer.take().unwrap();
-
-    /// create a new tantivy Document to push this doc to index1
-    let mut doc = Document::new();
-    doc.add_text(field_str, "addsegment");
-    writer.add_document(doc);
-    writer.commit();
-
-    let mut index1 = index_handle.index.clone();
-    let mut allsegments = index1.searchable_segment_ids().unwrap();
-    let index_handle2 = catalog.get_index(&"testindex2".to_string()).unwrap();
-    let index2 = index_handle2.index.clone();
-    /// get the segment_id for the segment in index1 and copy the files in index2 dir
-    let moving_segment = allsegments.pop().unwrap();
-    let uuid_string = moving_segment.uuid_string();
-    let exts = [
-        ".fast",
-        ".fieldnorm",
-        ".idx",
-        ".pos",
-        ".posidx",
-        ".store",
-        ".term",
-    ];
-    for ext in exts.iter() {
-        let pathstr1 = ["./test/testindex1/", &uuid_string, ext].concat();
-        let pathstr2 = ["./test/testindex2/", &uuid_string, ext].concat();
-        let mut path1 = PathBuf::from(pathstr1);
-        let mut path2 = PathBuf::from(pathstr2);
-        let result = fs::copy(path1, path2).unwrap();
-    }
-
-    index_handle2.add_segment(&uuid_string, 1).unwrap();
-    assert_eq!(
-        index2
-            .searchable_segment_ids()
-            .unwrap()
-            .pop()
-            .unwrap()
-            .uuid_string(),
-        uuid_string
-    );
-}
- */ }
