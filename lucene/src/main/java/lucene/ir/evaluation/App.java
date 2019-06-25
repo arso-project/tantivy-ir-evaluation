@@ -122,7 +122,7 @@ public class App {
 			double precAt3 = precisionAtK(results, hashIds, 3);
 			sumPat3 += precAt3;
 			System.out.println("Prec@3: " + precAt3);
-			double precAtR = precisionAtK(results, hashIds, results.length);
+			double precAtR = precisionAtK(results, hashIds, hashIds.size());
 			sumPatR += precAtR;
 			System.out.println("Prec@r: " + precAtR);
 			double ap = averagePrecision(results, hashIds);
