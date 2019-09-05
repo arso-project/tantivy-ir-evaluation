@@ -79,6 +79,7 @@ public class App {
 			doc.add(new StringField("id", String.valueOf(id), Field.Store.YES));
 			doc.add(new TextField("title", movie[0], Field.Store.YES));
 			doc.add(new TextField("body", movie[1], Field.Store.YES));
+			doc.add(new TextField("fulltext", movie[0] + System.lineSeparator() + movie[1], Field.Store.YES));
 			writer.addDocument(doc);
 			id++;
 		}
@@ -105,36 +106,45 @@ public class App {
 		double sumPatR = 0.0;
 		double sumAP = 0.0;
 
-		for (Map.Entry<String, HashSet<String>> benchmark : benchmarkMap.entrySet()) {
-			String searchTerm = benchmark.getKey();
-			HashSet<String> hashIds = benchmark.getValue();
-			System.out.println("Searching for: " + searchTerm);
-			Query q = new QueryParser("body", analyzer).parse(searchTerm);
-			TopDocs docs = searcher.search(q, 100);
-			ScoreDoc[] hits = docs.scoreDocs;
-			Document[] results = new Document[hits.length];
-			ScoreDoc hit;
-			for (int i = 0; i < hits.length; i++) {
-				hit = hits[i];
-				results[i] = searcher.doc(hit.doc);	
-			}
+        String[] queries = { "title", "body", "fulltext" };
 
-			double precAt3 = precisionAtK(results, hashIds, 3);
-			sumPat3 += precAt3;
-			System.out.println("Prec@3: " + precAt3);
-			double precAtR = precisionAtK(results, hashIds, hashIds.size());
-			sumPatR += precAtR;
-			System.out.println("Prec@r: " + precAtR);
-			double ap = averagePrecision(results, hashIds);
-			sumAP += ap;
-			System.out.println("AP: " + ap);
-		}
-		
-		double mpAt3 = sumPat3 / benchmarkMap.size();
-		double mpAtR = sumPatR / benchmarkMap.size();
-		double map = sumAP / benchmarkMap.size();
-		System.out.println("MP@3: " + mpAt3 + " MP@R: " + mpAtR + " MAP: " + map);
-	}
+        for (String query : queries) {
+            System.out.println("-----------------------------------------------");
+            System.out.println("       Query: "+ query);
+            System.out.println("-----------------------------------------------");
+
+            for (Map.Entry<String, HashSet<String>> benchmark : benchmarkMap.entrySet()) {
+                String searchTerm = benchmark.getKey();
+                HashSet<String> hashIds = benchmark.getValue();
+                System.out.println("Searching for: " + searchTerm);
+                Query q = new QueryParser(query, analyzer).parse(searchTerm);
+                TopDocs docs = searcher.search(q, 100);
+                ScoreDoc[] hits = docs.scoreDocs;
+                Document[] results = new Document[hits.length];
+                ScoreDoc hit;
+                for (int i = 0; i < hits.length; i++) {
+                    hit = hits[i];
+                    results[i] = searcher.doc(hit.doc);	
+                }
+
+                double precAt3 = precisionAtK(results, hashIds, 3);
+                sumPat3 += precAt3;
+                System.out.println("Prec@3: " + precAt3);
+                double precAtR = precisionAtK(results, hashIds, hashIds.size());
+                sumPatR += precAtR;
+                System.out.println("Prec@r: " + precAtR);
+                double ap = averagePrecision(results, hashIds);
+                sumAP += ap;
+                System.out.println("AP: " + ap);
+            }
+
+            double mpAt3 = sumPat3 / benchmarkMap.size();
+            double mpAtR = sumPatR / benchmarkMap.size();
+            double map = sumAP / benchmarkMap.size();
+            System.out.println("MP@3: " + mpAt3 + " MP@R: " + mpAtR + " MAP: " + map);
+
+        }
+    }
 
 	/**
 	 * Precision at k
