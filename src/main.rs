@@ -1,104 +1,98 @@
-use minidom::Element;
-use std::fs;
-use std::path::Path;
-use tantivy::Index;
-use tantivy::Result;
-use tantivy::schema::*;
-//use chrono::{DateTime, FixedOffset, TimeZone};
-use std::str::FromStr;
+#[macro_use] extern crate log;
 
-#[derive(Debug)]
-pub struct ReutersArticle {
-  oldid: u64,
-  newid: u64,
-  //date: DateTime<FixedOffset>,
-  dateline: String,
-  title: String,
-  body: String,
-}
 
-fn read_xml() -> Vec<ReutersArticle> {
-  let mut articles: Vec<ReutersArticle> = Vec::new(); 
-  let content = fs::read_to_string("datasets/reuters21578/reut2-000.sgm").unwrap();
-  let root: Element = content.parse().unwrap();
-  for child in root.children() {
-      if child.name() == "REUTERS" {
-	  let mut title = String::new();
-	  let mut body = String::new();
-	  let mut dateline = String::new();
-          let oldid = child.attr("OLDID").unwrap().parse::<u64>().unwrap();
-          let newid = child.attr("NEWID").unwrap().parse::<u64>().unwrap();
-          //let mut date = FixedOffset::west(0).ymd(0,0,0).and_hms(0,0,0);
-	  for article_child in child.children() {
-		if article_child.name() == "TEXT" {
-			for text_child in article_child.children() {
-				if text_child.name() == "TITLE" {
-					title = text_child.text();
-				} else if text_child.name() == "BODY" {
-					body = text_child.text();
-                                } else if text_child.name() == "DATELINE" {
-                                        dateline = text_child.text();
-                                }
-			}
-                } else if article_child.name() == "DATE" {
-                    //date = DateTime::parse_from_str(&article_child.text(), "%d-%b-%Y %H:%M:%S.2f").unwrap();
-                }
-	  }
-	  articles.push(ReutersArticle {
-                oldid: oldid,
-                newid: newid,
-                //date: date,
-                dateline: dateline,
-		title: title,
-		body: body,
-	  }); 
-      }
-  }
-  return articles;
-}
+mod index;
+mod metrics;
+mod moviedb_importer;
+mod reuters_importer;
+use serde_json;
+use std::fs::File;
+use std::io::prelude::*;
+use std::io::BufReader;
+use std::path::PathBuf;
+    use std::collections::HashSet;
+    use std::iter::FromIterator;
 
-fn create_index() -> Result<tantivy::Index> {
-	// create schema
-	let mut schema_builder = SchemaBuilder::default();
-	schema_builder.add_u64_field("oldid", INDEXED | STORED);
-	schema_builder.add_u64_field("newid", INDEXED | STORED);
-	schema_builder.add_u64_field("date", INDEXED | STORED);
-	schema_builder.add_text_field("title", TEXT | STORED);
-	schema_builder.add_text_field("dateline", TEXT | STORED);
-	schema_builder.add_text_field("body", TEXT | STORED);
-	let schema = schema_builder.build();
 
-	// create index	
-	let index = match Index::create_in_dir(Path::new("./index/"), schema.clone()) {
-		Ok(index) => index,
-		Err(e)    => panic!("Error: {}", e),
-	};
-	Ok(index)
-}
-
-fn index_articles(index: tantivy::Index, articles: Vec<ReutersArticle>) -> Result<()> {
-	let mut index_writer = index.writer(50_000_000)?;
-	let schema = index.schema();
-	let title = schema.get_field("title").unwrap();
-	let body = schema.get_field("body").unwrap();
-
-	for article in articles {
-		let mut doc = Document::default();
-		doc.add_text(title, &article.title);
-		doc.add_text(body, &article.body);
-		index_writer.add_document(doc);
-	}
-	
-	index_writer.commit();
-
-	Ok(())	
-}
 
 fn main() {
-        // TODO: Parse all xml files
-        // TODO: Parse and index oldid, newid, date, dateline
-	let articles = read_xml();
+	let base_path = PathBuf::from(r"./index");
+
+	let schema = read_schema("./schemata/movies.json".to_string());
+
+	let mut catalog = index::IndexCatalog::new(base_path).unwrap();
+	catalog.create_index("movies".to_string(), schema).unwrap();
+	let index = catalog.get_index(&"movies".to_string()).unwrap();
+	let articles = moviedb_importer::reader("datasets/movies.txt");
 	
-	let index = create_index().unwrap();
-	index_articles(index, articles);
+	
+	let docs = index.add_documents(&articles);
+	match docs {
+    Ok(()) => println!("Documents added"),
+    Err(e) => println!("can’t add documents: {:?}", e),
+}
+	let benchmark_data = moviedb_importer::benchmarkreader("datasets/movies-benchmark.txt").unwrap();
+	evaluate(benchmark_data, index);
+	
+}
+fn evaluate(
+	benchmark_data : std::collections::HashMap<std::string::String, std::vec::Vec<i32>>
+ ,
+	index: &mut index::IndexHandle,
+) {
+	let mut sum_p_at_3 = 0.0;
+	let mut sum_p_at_r = 0.0;
+	let mut sum_ap = 0.0;
+	
+	for (key, relevant_docs_vec) in &benchmark_data {
+		//println!!("Key:{} Val: {:?}",key,relevant_docs);
+		let relevant_docs = HashSet::from_iter(relevant_docs_vec);
+		let mut retrieved_ids = Vec::new();
+		println!("Query: {:?}", key );
+		let retrieved_docs = index.query(&key.to_string(), 1000).unwrap();
+		
+		let id_field = tantivy::schema::Field(0);
+		let title_field = tantivy::schema::Field(1);
+		let num_res = retrieved_docs.len();
+		for doc in retrieved_docs {
+			
+			let id = doc.1.get_first(id_field).unwrap().u64_value() as i32;
+			let title = doc.1.get_first(title_field).unwrap();
+			
+			//println!("Title {:?} ID: {:?} Score : {:?}",title , id, doc.0);
+			retrieved_ids.push(id.clone() as i32 );
+		}
+		//retrieved_ids.sort();
+		//println!!("Retrieved Ids: {:?}", retrieved_ids);
+		println!("Results: {:?}", num_res);
+		let p_at_3 = metrics::p_at_k(retrieved_ids.clone() , relevant_docs.clone(), 3);
+		println!("p@3: {}", p_at_3);
+		sum_p_at_3 = sum_p_at_3 +   p_at_3;
+		println!("sum_p@3: {}", sum_p_at_3);
+		let r = relevant_docs.len();
+		let p_at_r = metrics::p_at_k(retrieved_ids.clone() , relevant_docs.clone(), r);
+		println!("p@r: {}", p_at_r);
+		sum_p_at_r += p_at_r;
+		println!("sum_p@r: {}", sum_p_at_r);
+
+		let ap = metrics::ap(retrieved_ids, relevant_docs.clone());
+		println!("ap: {}", ap);
+		sum_ap =  sum_ap + ap ;
+		println!("sum_ap: {}", sum_ap);
+		
+	}
+	let mp_at_3 = sum_p_at_3 / benchmark_data.len() as f32;
+	let mp_at_r = sum_p_at_r / benchmark_data.len() as f32;
+	let map = sum_ap / benchmark_data.len() as f32;
+	println!("MP@3: {} MP@R: {} MAP: {}",mp_at_3,mp_at_r,map.to_string());
+}
+
+fn read_schema(path: String) -> tantivy::schema::Schema {
+	let file = File::open(path).unwrap();
+	let mut buf_reader = BufReader::new(file);
+	let mut contents = String::new();
+	buf_reader.read_to_string(&mut contents).unwrap();
+	let schema: tantivy::schema::Schema =
+		serde_json::from_str(&contents).expect("JSON was not well-formatted");
+	return schema;
 }
