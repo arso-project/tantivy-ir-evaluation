@@ -102,13 +102,13 @@ public class App {
 			benchmarkMap.put(benchmark[0], hashIds);
 		}
 
-		double sumPat3 = 0.0;
-		double sumPatR = 0.0;
-		double sumAP = 0.0;
-
         String[] queries = { "title", "body", "fulltext" };
 
         for (String query : queries) {
+            double sumPat3 = 0.0;
+            double sumPatR = 0.0;
+            double sumAP = 0.0;
+
             System.out.println("-----------------------------------------------");
             System.out.println("       Query: "+ query);
             System.out.println("-----------------------------------------------");
