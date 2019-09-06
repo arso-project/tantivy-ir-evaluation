@@ -155,16 +155,16 @@ impl IndexHandle {
         Ok(())
     }
 
-    pub fn query(&mut self, query: &String, limit: u32) -> Result<Vec<(f32, Document)>> {
+    pub fn query(&mut self, query: &String, limit: u32, field: &String) -> Result<Vec<(f32, Document)>> {
         let _metas = self.index.load_metas().unwrap();
         self.ensure_reader()?;
         let reader = self.reader.take().unwrap();
         let searcher = reader.searcher();
         let schema = self.index.schema();
 
-        let mut query_parser = QueryParser::for_index(&self.index, vec![schema.get_field("fulltext").unwrap()]);
+        let mut query_parser = QueryParser::for_index(&self.index, vec![schema.get_field(field).unwrap()]);
         let mut collectors = MultiCollector::new();
-        let top_docs_handle = collectors.add_collector(TopDocs::with_limit(100));
+        let top_docs_handle = collectors.add_collector(TopDocs::with_limit(1000));
         let count_handle = collectors.add_collector(Count);
         //query_parser.set_conjunction_by_default();
         let query = query_parser.parse_query(query)?;
