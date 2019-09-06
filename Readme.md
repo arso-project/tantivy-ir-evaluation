@@ -23,3 +23,7 @@ As a reference we used lucene.
 | MOVIE (Fulltext)   | **0.5** | **0.264**  | 0.237    |
 
 ### Tantivy
+
+| Task               | MP@3    | MP@R       | MAP      |
+|--------------------|---------|------------|----------|
+| MOVIE (Fulltext)   | 0.5     | 0.293      | 0.283    |
