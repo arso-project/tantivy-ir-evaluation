@@ -92,7 +92,7 @@ public class App {
         IndexSearcher searcher = new IndexSearcher(reader);
         StandardAnalyzer analyzer = new StandardAnalyzer();
 
-		List<String[]> benchmarks = splitFile(FileSystems.getDefault().getPath("..", "datasets", "movie-datset", "movies-benchmark.txt"));
+		List<String[]> benchmarks = splitFile(FileSystems.getDefault().getPath("..", "datasets", "movies-benchmark.txt"));
 		String[] ids;
 		HashMap<String, HashSet<String>> benchmarkMap = new HashMap<>();
 
