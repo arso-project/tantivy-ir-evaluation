@@ -46,6 +46,8 @@ pub fn reader(dataset: &str) -> Vec<Vec<(String, Value)>> {
 		article.push(title);
 		let body = ("body".to_string(), Value::Str(entry[1].to_string()));
 		article.push(body);
+		let fulltext = ("fulltext".to_string(), Value::Str(entry[0].to_string() + "\n" + entry[1]));
+		article.push(fulltext);
 		let id = ("id".to_string(), Value::U64(count));
 		article.push(id);
 		count += 1;

@@ -162,19 +162,9 @@ impl IndexHandle {
         let searcher = reader.searcher();
         let schema = self.index.schema();
 
-        let mut fields = vec![];
-        let all_fields = schema.fields();
-        for field_entry in all_fields {
-            if !field_entry.is_indexed() {
-                break;
-            }
-            if let Some(field) = schema.get_field(field_entry.name()) {
-                fields.push(field);
-            } // else cannot happen.
-        }
-        let mut query_parser = QueryParser::for_index(&self.index, fields);
+        let mut query_parser = QueryParser::for_index(&self.index, vec![schema.get_field("fulltext").unwrap()]);
         let mut collectors = MultiCollector::new();
-        let top_docs_handle = collectors.add_collector(TopDocs::with_limit(1000000));
+        let top_docs_handle = collectors.add_collector(TopDocs::with_limit(100));
         let count_handle = collectors.add_collector(Count);
         //query_parser.set_conjunction_by_default();
         let query = query_parser.parse_query(query)?;
