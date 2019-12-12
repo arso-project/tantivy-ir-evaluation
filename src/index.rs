@@ -83,7 +83,7 @@ impl IndexCatalog {
         Ok(())
     }
 
-    pub fn get_index(&mut self, name: &String) -> Result<&mut IndexHandle> {
+    pub fn get_index(&mut self, name: &str) -> Result<&mut IndexHandle> {
         let handle: &mut IndexHandle = match self.indexes.get_mut(name) {
             Some(handle) => Ok(handle),
             None => Err(TantivyError::InvalidArgument(
@@ -110,11 +110,6 @@ impl IndexHandle {
     }
 
     pub fn add_documents(&mut self, docs: &[Vec<(String, Value)>]) -> Result<()> {
-        // let writer = self.get_writer()?;
-
-        // let writer = handle.get_writer()?;
-
-        // let index: &Index = &handle.index;
         self.ensure_writer()?;
         let schema = self.index.schema();
         let mut writer = self.writer.take().unwrap();
@@ -155,18 +150,24 @@ impl IndexHandle {
         Ok(())
     }
 
-    pub fn query(&mut self, query: &String, limit: u32, field: &String) -> Result<Vec<(f32, Document)>> {
+    pub fn query(
+        &mut self,
+        query: &str,
+        limit: usize,
+        field: &String,
+    ) -> Result<Vec<(f32, Document)>> {
         let _metas = self.index.load_metas().unwrap();
         self.ensure_reader()?;
         let reader = self.reader.take().unwrap();
         let searcher = reader.searcher();
         let schema = self.index.schema();
 
-        let mut query_parser = QueryParser::for_index(&self.index, vec![schema.get_field(field).unwrap()]);
+        let query_parser =
+            QueryParser::for_index(&self.index, vec![schema.get_field(field).unwrap()]);
         let mut collectors = MultiCollector::new();
-        let top_docs_handle = collectors.add_collector(TopDocs::with_limit(1000));
+        let top_docs_handle = collectors.add_collector(TopDocs::with_limit(limit));
         let count_handle = collectors.add_collector(Count);
-        //query_parser.set_conjunction_by_default();
+        // query_parser.set_conjunction_by_default();
         let query = query_parser.parse_query(query)?;
 
         let mut multi_fruit = searcher.search(&query, &collectors)?;
@@ -181,108 +182,4 @@ impl IndexHandle {
 
         Ok(results)
     }
-    /* pub fn add_segment(&mut self, uuid_string: &str, max_doc: u32) -> Result<()> {
-            let mut segments = self.index.searchable_segment_metas()?;
-            let segment_id = SegmentId::generate_from_string(uuid_string);
-            if !self.index.searchable_segment_ids()?.contains(&segment_id) {
-                segments.push(SegmentMeta::new(segment_id, max_doc));
-                let schema = self.index.schema();
-                // add the counter of docs in segment to the index counter
-                let opstamp = self.index.load_metas()?.opstamp + max_doc as u64;
-                let metas = IndexMeta {
-                    segments,
-                    schema,
-                    opstamp,
-                    payload: None,
-                };
-                let mut buffer = serde_json::to_vec_pretty(&metas)?;
-                // just for newline
-                writeln!(&mut buffer)?;
-                self.index
-                    .directory_mut()
-                    .atomic_write(Path::new("meta.json"), &buffer[..])?;
-            } else {
-                return Err(TantivyError::InvalidArgument(
-                    "segment already indexed".to_string(),
-                ));
-            }
-            if !self.index.searchable_segment_ids()?.contains(&segment_id) {
-                return Err(TantivyError::InvalidArgument(
-                    "not possible to add segment".to_string(),
-                ));
-            }
-            Ok(())
-        }
-    }
-    #[test]
-    fn create_empty_indexcatalog() {
-        let base_path = PathBuf::from(r"./test");
-        fs::remove_dir_all(&base_path);
-        let catalog = IndexCatalog::new(base_path).unwrap();
-        assert_eq!(catalog.indexes.len(), 0);
-    }
-    #[test]
-    fn create_index() {
-        let base_path = PathBuf::from(r"./test");
-        fs::remove_dir_all(&base_path);
-        /// create a new index catalog, index catalog is a hashmap with indexname as key and index as value
-        let mut catalog = IndexCatalog::new(base_path).unwrap();
-        /// create a new schema with one textfield called "field_str" and build this schema
-        let mut schema_builder = Schema::builder();
-        let field_str = schema_builder.add_text_field("field_str", STRING);
-        let schema = schema_builder.build();
-        /// create two new indexes to compare the segment_ids after we call the add_segment method
-        catalog
-            .create_index("testindex1".to_string(), schema.clone())
-            .unwrap();
-        catalog
-            .create_index("testindex2".to_string(), schema)
-            .unwrap();
-
-        let index_handle = catalog.get_index(&"testindex1".to_string()).unwrap();
-        index_handle.ensure_writer();
-        let mut writer = index_handle.writer.take().unwrap();
-
-        /// create a new tantivy Document to push this doc to index1
-        let mut doc = Document::new();
-        doc.add_text(field_str, "addsegment");
-        writer.add_document(doc);
-        writer.commit();
-
-        let mut index1 = index_handle.index.clone();
-        let mut allsegments = index1.searchable_segment_ids().unwrap();
-        let index_handle2 = catalog.get_index(&"testindex2".to_string()).unwrap();
-        let index2 = index_handle2.index.clone();
-        /// get the segment_id for the segment in index1 and copy the files in index2 dir
-        let moving_segment = allsegments.pop().unwrap();
-        let uuid_string = moving_segment.uuid_string();
-        let exts = [
-            ".fast",
-            ".fieldnorm",
-            ".idx",
-            ".pos",
-            ".posidx",
-            ".store",
-            ".term",
-        ];
-        for ext in exts.iter() {
-            let pathstr1 = ["./test/testindex1/", &uuid_string, ext].concat();
-            let pathstr2 = ["./test/testindex2/", &uuid_string, ext].concat();
-            let mut path1 = PathBuf::from(pathstr1);
-            let mut path2 = PathBuf::from(pathstr2);
-            let result = fs::copy(path1, path2).unwrap();
-        }
-
-        index_handle2.add_segment(&uuid_string, 1).unwrap();
-        assert_eq!(
-            index2
-                .searchable_segment_ids()
-                .unwrap()
-                .pop()
-                .unwrap()
-                .uuid_string(),
-            uuid_string
-        );
-    }
-     */
 }
