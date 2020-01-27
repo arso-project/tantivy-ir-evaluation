@@ -24,7 +24,6 @@ pub fn benchmarkreader(dataset: &str) -> Result<HashMap<String, Vec<i32>>> {
 
             values.push(value);
         }
-
         store.insert(key.clone(), values.clone());
     }
     Ok(store)
@@ -55,5 +54,5 @@ pub fn reader(dataset: &str) -> Vec<Vec<(String, Value)>> {
         articles.push(article);
     }
 
-    return articles;
+    articles
 }

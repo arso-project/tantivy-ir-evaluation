@@ -3,13 +3,10 @@ extern crate log;
 mod index;
 mod metrics;
 mod moviedb_importer;
-mod reuters_importer;
 use serde_json;
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::iter::FromIterator;
 use std::path::PathBuf;
 
 fn main() {
@@ -45,7 +42,7 @@ fn evaluate(
         debug!("####### Field: {} ", field);
 
         for (key, relevant_docs_vec) in &benchmark_data {
-            let relevant_docs = HashSet::from_iter(relevant_docs_vec);
+            let relevant_docs = relevant_docs_vec;
             let mut retrieved_ids = Vec::new();
             debug!("Query: {:?}", key);
             let retrieved_docs = index
@@ -58,7 +55,7 @@ fn evaluate(
             for doc in retrieved_docs {
                 let id = doc.1.get_first(id_field).unwrap().u64_value() as i32;
                 let title = doc.1.get_first(title_field).unwrap();
-                debug!("Title {:?} ID: {:?} Score : {:?}", title, id, doc.0);
+                println!("Title {:?} ID: {:?} Score : {:?}", title, id, doc.0);
                 retrieved_ids.push(id.clone() as i32);
             }
             debug!("Retrieved Ids: {:?}", retrieved_ids.sort());
@@ -97,5 +94,5 @@ fn read_schema(path: String) -> tantivy::schema::Schema {
     buf_reader.read_to_string(&mut contents).unwrap();
     let schema: tantivy::schema::Schema =
         serde_json::from_str(&contents).expect("JSON was not well-formatted");
-    return schema;
+    schema
 }

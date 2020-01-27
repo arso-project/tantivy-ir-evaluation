@@ -45,7 +45,7 @@ impl IndexCatalog {
     }
 
     fn load_from_dir_entry(&mut self, entry: fs::DirEntry) {
-        let mut path_to_metajson = entry.path().clone();
+        let mut path_to_metajson = entry.path();
         path_to_metajson.push("meta.json");
         if path_to_metajson.exists() {
             let name = entry.file_name().into_string();
@@ -154,7 +154,7 @@ impl IndexHandle {
         &mut self,
         query: &str,
         limit: usize,
-        field: &String,
+        field: &str,
     ) -> Result<Vec<(f32, Document)>> {
         let _metas = self.index.load_metas().unwrap();
         self.ensure_reader()?;
@@ -171,7 +171,7 @@ impl IndexHandle {
         let query = query_parser.parse_query(query)?;
 
         let mut multi_fruit = searcher.search(&query, &collectors)?;
-        let count = count_handle.extract(&mut multi_fruit);
+        let _count = count_handle.extract(&mut multi_fruit);
         let top_docs = top_docs_handle.extract(&mut multi_fruit);
 
         let mut results = vec![];

@@ -1,2 +1,6 @@
 /target
 **/*.rs.bk
+/datasets
+/index
+/movies
+/lucene/data

@@ -1,24 +1,21 @@
-use std::collections::HashSet;
-use std::iter::FromIterator;
-
 // Precision at k
-pub fn p_at_k(results: Vec<i32>, benchmark: HashSet<&i32>, k: usize) -> (f32) {
+pub fn p_at_k(results: Vec<i32>, benchmark: Vec<i32>, k: usize) -> f32 {
     let (mut counter, mut p) = (0.0, 0.0);
     if k == 0 {
         return 0 as f32;
     }
     for i in 0..k {
         if results.len() > i as usize && benchmark.contains(&results[i as usize]) {
-            p = p + 1.0;
+            p += 1.0;
             counter += 1.0;
         } else {
             counter += 1.0;
         }
     }
-    return p / counter;
+    p / counter
 }
 // Average Prescision
-pub fn ap(results: Vec<i32>, benchmark: HashSet<&i32>) -> (f32) {
+pub fn ap(results: Vec<i32>, benchmark: Vec<i32>) -> f32 {
     let mut ap_sum = 0.0;
 
     for i in 0..results.len() {
