@@ -39,7 +39,7 @@ fn evaluate(
         let mut sum_p_at_r = 0.0;
         let mut sum_ap = 0.0;
 
-        debug!("####### Field: {} ", field);
+        println!("####### Field: {} ", field);
 
         for (key, relevant_docs_vec) in &benchmark_data {
             let relevant_docs = relevant_docs_vec;
@@ -55,25 +55,25 @@ fn evaluate(
             for doc in retrieved_docs {
                 let id = doc.1.get_first(id_field).unwrap().u64_value() as i32;
                 let title = doc.1.get_first(title_field).unwrap();
-                println!("Title {:?} ID: {:?} Score : {:?}", title, id, doc.0);
+                debug!("Title {:?} ID: {:?} Score : {:?}", title, id, doc.0);
                 retrieved_ids.push(id.clone() as i32);
             }
             debug!("Retrieved Ids: {:?}", retrieved_ids.sort());
-            println!("Results: {:?}", num_res);
+            debug!("Results: {:?}", num_res);
             let p_at_3 = metrics::p_at_k(retrieved_ids.clone(), relevant_docs.clone(), 3);
-            println!("p@3: {}", p_at_3);
+            debug!("p@3: {}", p_at_3);
             sum_p_at_3 += p_at_3;
-            println!("sum_p@3: {}", sum_p_at_3);
+            debug!("sum_p@3: {}", sum_p_at_3);
             let r = relevant_docs.len();
             let p_at_r = metrics::p_at_k(retrieved_ids.clone(), relevant_docs.clone(), r);
-            println!("p@r: {}", p_at_r);
+            debug!("p@r: {}", p_at_r);
             sum_p_at_r += p_at_r;
-            println!("sum_p@r: {}", sum_p_at_r);
+            debug!("sum_p@r: {}", sum_p_at_r);
 
             let ap = metrics::ap(retrieved_ids, relevant_docs.clone());
-            println!("ap: {}", ap);
+            debug!("ap: {}", ap);
             sum_ap += ap;
-            println!("sum_ap: {}", sum_ap);
+            debug!("sum_ap: {}", sum_ap);
         }
         let mp_at_3 = sum_p_at_3 / benchmark_data.len() as f32;
         let mp_at_r = sum_p_at_r / benchmark_data.len() as f32;
