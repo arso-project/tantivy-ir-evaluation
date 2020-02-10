@@ -26,13 +26,13 @@ As a reference we used lucene.
 
 ### Tantivy
 
-with limit = 1000
+with limit = 100
 
 | Task               | MP@3    | MP@R       | MAP      |
 |--------------------|---------|------------|----------|
 | MOVIE (Title)      | 0.1     | 0.066      | 0.039    |
-| MOVIE (Body)       | 0.367   | 0.286      | **0.307**|
-| MOVIE (Fulltext)   | **0.5** | **0.297**  | 0.299    |
+| MOVIE (Body)       | 0.367   | 0.282      | **0.291**|
+| MOVIE (Fulltext)   | **0.5** | **0.294**  | 0.283    |
 
 ## Conclusion
 

@@ -46,7 +46,7 @@ fn evaluate(
             let mut retrieved_ids = Vec::new();
             debug!("Query: {:?}", key);
             let retrieved_docs = index
-                .query(&key.to_string(), 1000, &field.to_string())
+                .query(&key.to_string(), 100, &field.to_string())
                 .unwrap();
 
             let id_field = tantivy::schema::Field(0);
