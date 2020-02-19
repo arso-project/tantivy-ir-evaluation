@@ -56,7 +56,7 @@ fn evaluate(
                 let id = doc.1.get_first(id_field).unwrap().u64_value() as i32;
                 let title = doc.1.get_first(title_field).unwrap();
                 debug!("Title {:?} ID: {:?} Score : {:?}", title, id, doc.0);
-                retrieved_ids.push(id.clone() as i32);
+                retrieved_ids.push(id as i32);
             }
             debug!("Retrieved Ids: {:?}", retrieved_ids.sort());
             debug!("Results: {:?}", num_res);
